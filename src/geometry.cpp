@@ -80,7 +80,7 @@ void hw::GeometryUndistorter::makeOptimalK_crop()
     int total_num = 100*factor_num;
     float half_num = 50*factor_num;
     float base_num = 10*factor_num;
-    target_points.resize(total_num);
+    target_points.resize(total_num);//point on camera frame
     for(int i=0; i<total_num;i++)
     {
         target_points[i] = Eigen::Vector2f((i-half_num) / base_num, 0);
@@ -124,7 +124,7 @@ void hw::GeometryUndistorter::makeOptimalK_crop()
     while(oobLeft || oobRight || oobTop || oobBottom)
     {
         oobLeft=oobRight=oobTop=oobBottom=false;
-        // X 赋值最大最小, Y 赋值是根据坐标从小到大映射在minY 到 minY 之间
+        // X 赋值最大最小, Y 赋值是根据坐标从小到大映射在minY 到 maxY 之间
         //! 这样保证每个Y坐标都分别对应最大x, 最小x, 以便求出边界
         for(int y=0;y<h_;y++)
         {
@@ -133,7 +133,7 @@ void hw::GeometryUndistorter::makeOptimalK_crop()
             remap_[y*2][1] = remap_[y*2+1][1] = minY + (maxY-minY) * (float)y / ((float)h_-1.0f);
         }
         distortCoordinates(remap_);  // 加畸变变换到当前图像
-        // 如果还有不在图像范围内的, 则继续缩减
+        // 如果还有不在图像范围内的, 则继续缩减 => 收缩 x范围
         for(int y=0;y<h_;y++)
         {
             // 最小的值即左侧要收缩
@@ -153,7 +153,7 @@ void hw::GeometryUndistorter::makeOptimalK_crop()
         }
         distortCoordinates(remap_);
 
-        for(int x=0;x<w_;x++)
+        for(int x=0;x<w_;x++) //=> 收缩 y范围
         {
             if(!(remap_[2*x][1] > 0 && remap_[2*x][1] < h_-1))
                 oobTop = true;
@@ -178,7 +178,6 @@ void hw::GeometryUndistorter::makeOptimalK_crop()
 
         iteration++;
 
-
         printf("iteration %05d: range: x: %.4f - %.4f; y: %.4f - %.4f!\n", iteration,  minX, maxX, minY, maxY);
         if(iteration > 500) // 迭代次数太多
         {
@@ -192,48 +191,43 @@ void hw::GeometryUndistorter::makeOptimalK_crop()
     K_rect_(1,1) = ((float)h_-1.0f)/(maxY-minY);
     K_rect_(0,2) = -minX*K_rect_(0,0);
     K_rect_(1,2) = -minY*K_rect_(1,1);
-
-    // K_rect_(0,0) = ;
-	// K_rect_(1,1) = ;
-	// K_rect_(0,2) = ;
-	// K_rect_(1,2) = ;
 }
 
 /*
-// FoV model
-// void hw::GeometryUndistorter::distortCoordinates(std::vector<Eigen::Vector2f> &in)
-// {
-//     float dist = omega_;
-// 	float d2t = 2.0f * tan(dist / 2.0f);
-//     int n = in.size();
+    // FoV model
+    // void hw::GeometryUndistorter::distortCoordinates(std::vector<Eigen::Vector2f> &in)
+    // {
+    //     float dist = omega_;
+    // 	float d2t = 2.0f * tan(dist / 2.0f);
+    //     int n = in.size();
 
-//     float fx = K_(0, 0);
-//     float fy = K_(1, 1);
-//     float cx = K_(0, 2);
-//     float cy = K_(1, 2);
+    //     float fx = K_(0, 0);
+    //     float fy = K_(1, 1);
+    //     float cx = K_(0, 2);
+    //     float cy = K_(1, 2);
 
-//     float ofx = K_rect_(0, 0);
-//     float ofy = K_rect_(1, 1);
-//     float ocx = K_rect_(0, 2);
-//     float ocy = K_rect_(1, 2);
+    //     float ofx = K_rect_(0, 0);
+    //     float ofy = K_rect_(1, 1);
+    //     float ocx = K_rect_(0, 2);
+    //     float ocy = K_rect_(1, 2);
 
-//     for(int i=0; i<n; ++i)
-//     {
-//         float x = in[i][0];
-//         float y = in[i][1];
-//         float ix = (x - ocx) / ofx;
-//         float iy = (y - ocy) / ofy;
+    //     for(int i=0; i<n; ++i)
+    //     {
+    //         float x = in[i][0];
+    //         float y = in[i][1];
+    //         float ix = (x - ocx) / ofx;
+    //         float iy = (y - ocy) / ofy;
 
-//         float r = sqrtf(ix*ix + iy*iy);
-// 		float fac = (r==0 || dist==0) ? 1 : atanf(r * d2t)/(dist*r);
+    //         float r = sqrtf(ix*ix + iy*iy);
+    // 		float fac = (r==0 || dist==0) ? 1 : atanf(r * d2t)/(dist*r);
 
-// 		ix = fx*fac*ix+cx;
-// 		iy = fy*fac*iy+cy;
+    // 		ix = fx*fac*ix+cx;
+    // 		iy = fy*fac*iy+cy;
 
-// 		in[i][0] = ix;
-// 		in[i][1] = iy;
-//     }
-// }
+    // 		in[i][0] = ix;
+    // 		in[i][1] = iy;
+    //     }
+    // }
 */
 
 // Equidistant model
@@ -245,33 +239,33 @@ void hw::GeometryUndistorter::distortCoordinates(std::vector<Eigen::Vector2f> &i
     float cx = K_(0,2);
     float cy = K_(1,2);
 
-     float ofx = K_rect_(0,0);
-     float ofy = K_rect_(1,1);
-     float ocx = K_rect_(0,2);
-     float ocy = K_rect_(1,2);
+    float ofx = K_rect_(0,0);
+    float ofy = K_rect_(1,1);
+    float ocx = K_rect_(0,2);
+    float ocy = K_rect_(1,2);
 
-     for(int i=0; i< in.size(); i++)
-     {
-         float x = in[i][0];
-         float y = in[i][1];
+    for(int i=0; i< in.size(); i++)
+    {
+        float x = in[i][0];
+        float y = in[i][1];
 
-         // EQUI
-         float ix = (x - ocx) / ofx;
-         float iy = (y - ocy) / ofy;
-         float r = sqrt(ix * ix + iy * iy);
-         float theta = atan(r);
-         float theta2 = theta * theta;
-         float theta4 = theta2 * theta2;
-         float theta6 = theta4 * theta2;
-         float theta8 = theta4 * theta4;
-         float thetad = theta * (1 + k1_ * theta2 + k2_ * theta4 + k3_ * theta6 + k4_ * theta8);
-         float scaling = (r > 1e-8) ? thetad / r : 1.0;
-         float ox = fx*ix*scaling + cx;
-         float oy = fy*iy*scaling + cy;
+        // EQUI
+        float ix = (x - ocx) / ofx;
+        float iy = (y - ocy) / ofy;
+        float r = sqrt(ix * ix + iy * iy);
+        float theta = atan(r);
+        float theta2 = theta * theta;
+        float theta4 = theta2 * theta2;
+        float theta6 = theta4 * theta2;
+        float theta8 = theta4 * theta4;
+        float thetad = theta * (1 + k1_ * theta2 + k2_ * theta4 + k3_ * theta6 + k4_ * theta8);
+        float scaling = (r > 1e-8) ? thetad / r : 1.0;
+        float ox = fx*ix*scaling + cx;
+        float oy = fy*iy*scaling + cy;
 
-         in[i][0] = ox;
-         in[i][1] = oy;
-     }
+        in[i][0] = ox;
+        in[i][1] = oy;
+    }
 }
 /*
 void hw::GeometryUndistorter::distortCoordinates(std::vector<Eigen::Vector2f> &in)

@@ -81,25 +81,28 @@ void hw::PhotometricUndistorter::processFrame(cv::Mat& image)
         std::cout << "[Warning]: input is a 16bit image" << std::endl;
         return;
     }
-    std::cout<<"image.type()"<<image.type()<<std::endl;//CV_8U
+    //std::cout<<"image.type()"<<image.type()<<std::endl;//CV_8U
     //TODO: use 'vignette_inv_' and 'G_' to finish photometric undistort on 'image'
 
 
-    // uchar* data = image.data;
-    // int wh = w_img*h_img;
-    // float tmp_value = 0.0;
-    // for(int i=0; i<wh;i++)
-    // {
-    //     data[i] = (uchar)(G_[image.data[i]]/vignette_.at<float>(i));
-    // }
+    uchar* data = image.data;
+    int wh = w_img*h_img;
+    float tmp_value = 0.0;
+    for(int i=0; i<wh;i++)
+    {
+        tmp_value= (uchar)(G_[data[i]]/vignette_.at<float>(i));
+        if(tmp_value > 255) tmp_value = 255;
+        if(tmp_value < 0)   tmp_value = 0;
+        data[i] = tmp_value;
+    }
 
-   for(int row=0; row < h_img; row++)
-   {
-       for(int col=0; col< w_img; col++)
-       {
-          std::cout<<"K:"<<image.at<float>(row, col)<<std::endl;
-          image.at<uchar>(row, col) = G_[image.at<uchar>(row, col)];// 去掉响应函数
-          image.at<uchar>(row, col) *= vignette_inv_.at<float>(row, col);
-       }
-   }
+//    for(int row=0; row < h_img; row++)
+//    {
+//        for(int col=0; col< w_img; col++)
+//        {
+//           //std::cout<<"K:"<<image.at<float>(row, col)<<std::endl;
+//           image.at<uchar>(row, col) = G_[image.at<uchar>(row, col)];// 去掉响应函数
+//           image.at<uchar>(row, col) *= vignette_inv_.at<float>(row, col);
+//        }
+//    }
 }
